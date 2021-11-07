@@ -1,172 +1,176 @@
-<html >
+<?php //подключение к БД
+session_start();
+$host = '127.0.0.1'; //имя хоста, на локальном компьютере это localhost
+$user = 'slave'; //имя пользователя, по умолчанию это root, но у меня slave
+$password = 'megaslave'; //пароль, по умолчанию пустой, но у меня megaslave
+$db_name = 'coursework'; //имя базы данных
+$db = mysqli_connect($host, $user, $password, $db_name) or die('No db connection'); //подключение по параметрам выше или вывод ошибки
+mysqli_query($db, "SET NAMES 'utf8'");//кодировка для подключение для всех языков
+
+require_once __DIR__ . '/utils.php';
+
+// логинимся
+
+if (isset($_SESSION['user']))
+    die_beautiful(307, 'Redirecting...', 'search.php', 0);
+
+if (isset($_POST['type'])) {
+    if (!isset($_POST['username']) || empty($_POST['username'])) {
+        die_beautiful(400, 'Invalid login or password', 'index.php');
+    }
+    if (!isset($_POST['password']) || empty($_POST['password'])) {
+        die_beautiful(400, 'Invalid login or password', 'index.php');
+    }
+    if (!preg_match('/^[A-Za-z0-9]+$/', $_POST['username'])) {
+        die_beautiful(400, 'Invalid login or password', 'index.php');
+    }
+
+    $username = $_POST['username'];
+    $password = $_POST['password'];
+
+    $query = $db->query("SELECT * FROM users WHERE login='$username';");
+
+    if ($query === false)
+        die_beautiful(400, 'Invalid login or password', 'index.php');
+
+    $query = $query->fetch_assoc();
+
+
+    if ($_POST['type'] === 'login') {
+        if (!isset($query['password']))
+            die_beautiful(400, 'Invalid login or password', 'index.php');
+
+        if ($query['password'] === md5($password)) {
+            $_SESSION['user'] = $query;
+            die_beautiful(200, 'Ok', 'search.php', 0);
+        } else
+            die_beautiful(400, 'Invalid login or password', 'index.php');
+    } elseif ($_POST['type'] === 'register') {
+        if (!empty($query['login']))
+            die_beautiful(400, 'User already exists', 'index.php');
+
+        if (strlen($username) < 3)
+            die_beautiful(400, 'Too short login', 'index.php');
+
+        if (strlen($password) < 5)
+            die_beautiful(400, 'Too short password', 'index.php');
+
+        $hashed_password = md5($password);
+
+        $db->query("INSERT INTO users (login, password) values ('$username', '$hashed_password');");
+        $db->commit();
+
+        die_beautiful(200, 'Ok', 'index.php', 0);
+
+    }
+}
+?>
+
+<!doctype html>
+<html>
 <head>
     <title>Вход</title>
-    <meta charset="UTF-8" />
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <style>
         body {
-            background: url("bc.jpg");
+            margin: 0;
+            padding: 0;
+            background: #17a2b8 url("bc.jpg");
+            height: 100vh;
         }
-        .main {
-            left: 40%;
-            top: 40%;
-            position: absolute;
+
+        .login-box {
+            margin-top: 120px;
+            max-width: 600px;
+            height: 320px;
+            border: 1px solid #9C9C9C;
+            background-color: #EAEAEA;
         }
-        .reg {
-           position:relative;
-            width: 30vh;
-            height: 10vh;
-            background-color: rgb(169, 169, 169);
-            z-index: 6;
-            border: 1vh rgba(0,0,0,0.3);
-            border-style:inset;
-            border-radius: 1vh;
+
+        .register-box {
+            margin-top: 120px;
+            max-width: 600px;
+            height: 400px;
+            border: 1px solid #9C9C9C;
+            background-color: #EAEAEA;
         }
-        .dopblock {
-            position: relative;
-            width: 15vh;
-            height: 20vh;
-            border: 1vh rgba(0,0,0,0.3);
-            margin-left: 15vh;
-            z-index: 7;
-            border-style: inset;
-            border-radius: 1vh;
-            background-color: rgb(169, 169, 169);
-            margin-top:-17vh;
+
+
+        #login .container #login-row #login-column #login-box #login-form {
+            padding: 20px;
         }
-        .mainblock {
-            position: absolute;
-            width: 28vh;
-            height: 10vh;
-            z-index: 8;
-            margin-top: -16vh;
-            background-color: rgb(169, 169, 169);
-            margin-left: 1vh;
+
+        #login .container #login-row #login-column #login-box #login-form #register-link {
+            margin-top: -65px;
         }
-        h2{
-            text-align:center;
-           font-size: 1.5em;
-           margin-top:auto;
-        }
-        h3 {
-            text-align: right;
-            margin-top: auto;
-        }
-        .but1, .but2 {
-            width: 15vh;
-            height: 4vh;
-            font-size: 1.2vw;
-            color: darkgrey;
-            z-index: 100;
-            position: absolute;
-            margin-top: -4.5vh;
-            border-radius: 0 1vh 0 1vh ;
-        }
-        .but2 {
-            margin-top: 12.5vh;
-            border-radius: 1vh 0 1vh 0;
-        }
-        .send{
-            position:absolute;
-            margin-left:17vh;
-        }
-        .send1{
-            position: absolute;
-            margin-left: 17vh;
-            margin-top:3vh;
-        }
-      input{
-          width:10vh;
-          height:3vh;
-      }
     </style>
 </head>
-<body onload="log()">
-    <div class="main">
-        <input type="button" class="but1" value="Регистрация" onclick="reg()" /><!--при нажитии кнопки выводятся соответстующие поля-->
-        <input type="button" class="but2" value="Вход" onclick="log()" />
-        <div class="reg"></div>
-        <div class="dopblock">
-            <h2>Disk planet</h2>
-        </div>
-        <form  method="GET">
-            <div class="mainblock" id="reg">
-                    <h3>Логин:  <input name="login"/><br />Пароль:  <input name="pass"/><br />Повтор Пароля:  <input name="pass2" /></h3><!--форма для ввода данных-->
-                    <input type="submit" class="send" value="Зарегистрироваться" name="reg" /><!--форма для отправки данных-->
+<body>
+<div id="login">
+    <div class="container">
+        <div id="login-row" class="row justify-content-center align-items-center">
+            <div id="login-column" class="col-md-6">
+                <div id="login-box" class="login-box col-md-12">
+                    <form id="login-form" class="form" action="" method="post">
+                        <h3 class="text-center text-info">Авторизация</h3>
+                        <div class="form-group">
+                            <label for="username" class="text-info">Логин:</label><br>
+                            <input type="text" name="username" id="username" class="form-control" minlength="3">
+                        </div>
+                        <div class="form-group">
+                            <label for="password" class="text-info">Пароль:</label><br>
+                            <input type="password" name="password" id="password" class="form-control" minlength="5">
+                        </div>
+
+                        <div class="form-group" hidden="hidden" id="password-retype-block">
+                            <label for="password-retype" class="text-info">Повторите пароль:</label><br>
+                            <input type="password" name="password_retype" id="password-retype" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <input type="submit" name="submit" id="submit-btn" class="btn btn-info btn-md"
+                                   value="Войти">
+                        </div>
+                        <input type="hidden" name="type" value="login" id="task-type">
+                        <div id="register-link" class="text-right">
+                            <input type="button" id="register-button" class="text-info"
+                                   style="outline: none; border: none; background: none; cursor: pointer"
+                                   value="Регистрация"/>
+                        </div>
+                    </form>
+                </div>
             </div>
-                <div class="mainblock" id="log">
-                    <h3>Логин:  <input name="loginl" /><br />Пароль:  <input name="passl"/></h3>
-                    <input type="submit" class="send1" value="Войти"name="log" />
-            </div>
-</form>
         </div>
+    </div>
+</div>
 </body>
 </html>
 <script>
-    function log() {
-        (document.getElementById("reg").style.display = "none");//при нажитии кнопки выводятся соответстующие поля
-        (document.getElementById("log").style.display = "block");
+    $(document).ready(() => {
+        $('#register-button').click(() => signUp())
+    })
+
+    function signUp() {
+        $('#password-retype-block').removeAttr('hidden');
+        $('#register-button').val('Логин');
+        $('#login-box').removeClass('login-box');
+        $('#login-box').addClass('register-box');
+        $('#task-type').val('register')
+        $('#submit-btn').val('Зарегестрироваться')
+        $('#register-button').unbind('click');
+        $('#register-button').click(() => signIn())
     }
-    function reg() {
-        (document.getElementById("reg").style.display = "block");
-        (document.getElementById("log").style.display = "none");
+
+    function signIn() {
+        $('#password-retype-block').attr('hidden', 'hidden');
+        $('#register-button').val('Регистрация');
+        $('#login-box').removeClass('register-box');
+        $('#login-box').addClass('login-box');
+        $('#task-type').val('login')
+        $('#submit-btn').val('Войти')
+        $('#register-button').unbind('click');
+        $('#register-button').click(() => signUp())
     }
 </script>
-<?php //подключение к БД
-$host = 'localhost'; //имя хоста, на локальном компьютере это localhost
-$user = 'j96535km_sait'; //имя пользователя, по умолчанию это root
-$password = 'QF6MMxd&'; //пароль, по умолчанию пустой
-$db_name = 'j96535km_sait'; //имя базы данных
-$link = mysqli_connect($host, $user, $password, $db_name) or die(mysqli_error($link)); //подключение по параметрам выше или вывод ошибки
-mysqli_query($link, "SET NAMES 'utf8'");//кодировка для подключение для всех языков
-
-//логинимся
-if (isset($_GET['loginl'])) { $login = $_GET['loginl']; if ($login == '') { unset($login);} }//получение данных с поля логина
-if (isset($_GET['log'])){ //срабатывает по нажатию залогиниться
-$password = $_GET['passl'];
-$query = "SELECT*FROM users WHERE name='$login'";//выбор из таблицы пользователей из бд
-$result = mysqli_query ($link , $query);
-for ($data = []; $row = mysqli_fetch_assoc($result); $data[] = $row); $result = ''; foreach ($data as $elem) {//получает данные с бд
- $pass1 =  $elem['password'] ;//получение пароля с бд
- $allvl=   $elem['allowment'] ;//получение  с бд
-} 
-if($pass1 != $password){//Проверка совпадает ли введённый пароль с паролем в базе данных
-echo "Неверный пароль";
-}
-if(empty($password)){//не пустое ли поле пороля
-echo "введите пароль";
-}
-else if($pass1 == $password){//если пароль с бд и введенный совпадают
- echo "<script>alert(\"Вы успешно вошли\");</script>"; 
- $allvlS=$allvl.'LVL';
- echo "<script>window.location.href='./serch.php?id=$allvlS'</script>";//направляет на основную страницу
-}
-
-//регистрируемся
-}
-if (isset($_GET['login'])) { $login = $_GET['login']; if ($login == '') { unset($login);} }//получение логина для регистрации
-if (isset($_GET['reg'])){ //выполнение при нажатии кнопки зарег
-$password = $_GET['pass'];
-$password1 = $_GET['pass2'];
-//проверка на уже зарегестрированного пользователя
-$query = "SELECT*FROM users WHERE name='$login'";//выбрать таблицу users
-$result = mysqli_query ($link , $query);
-for ($data = []; $row = mysqli_fetch_assoc($result); $data[] = $row); $result = ''; foreach ($data as $elem) { 
- $pass1 =  $elem['password'] ; 
-} 
-if(!empty($pass1)){
-echo "<script>alert(\"Пользователь с данным логином уже зарегистрирован.\");</script>"; 
-exit();
-}
-
-if($password1 != $password){
-echo "Пароли не совпадают";
-}
-elseif ($password1 == $password){
- if (mb_strlen($password) < 4)
- exit("Пароль должен быть длинее 4 символов.");
- mysqli_query($link, "INSERT INTO users SET name='$login', password='$password', allowment='0'") or die(mysqli_error($link)); //запись в бд
- echo "<script>alert(\"Регистрация прошла успешно!\");</script>"; 
- 
-}
-}
-?>
